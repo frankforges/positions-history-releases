@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<!-- Only this page's own script runs, and it can only talk to the GitHub API. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src https://api.github.com; img-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Positions History · Users</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2228; --muted: #67707a; --line: #dfe3e8;
+    --accent: #d9480f; --ok: #2b8a3e; --bad: #c92a2a; --field: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17191c; --panel: #202327; --text: #e6e8eb; --muted: #9aa2ab; --line: #33373d;
+      --accent: #ff7a3d; --ok: #51cf66; --bad: #ff6b6b; --field: #17191c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  h1 { font-size: 19px; margin: 0; font-weight: 600; }
+  h1 span { color: var(--accent); }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; margin-bottom: 14px; }
+  h2 { font-size: 15px; margin: 0 0 10px; font-weight: 600; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  input, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--text); font: inherit; }
+  textarea { font-family: ui-monospace, Consolas, monospace; font-size: 13px; resize: vertical; }
+  button { padding: 8px 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .55; cursor: default; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  li:last-child { border-bottom: 0; }
+  li code { font-family: ui-monospace, Consolas, monospace; font-size: 13px; color: var(--muted); white-space: nowrap; }
+  li .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); }
+  ol { margin: 6px 0 0; padding-left: 20px; color: var(--muted); font-size: 13px; }
+  a { color: var(--accent); }
+  #msg:empty, #publish:empty { display: none; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Positions History <span>·</span> Users</h1>
+    <button id="lock" type="button" hidden>Lock</button>
+  </header>
+
+  <section id="setup" hidden>
+    <h2>Connect this device</h2>
+    <p class="muted">Paste a GitHub token that can edit the private repo, then choose a password. The token is stored on this device only, encrypted with the password.</p>
+    <ol>
+      <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com → new fine-grained token</a>.</li>
+      <li>Repository access: <b>Only select repositories</b> → <b>nt8-positions-history</b>.</li>
+      <li>Permissions: <b>Contents: Read and write</b>, <b>Actions: Read-only</b>. Nothing else.</li>
+      <li>Generate, copy, paste below.</li>
+    </ol>
+    <label for="token">GitHub token</label>
+    <textarea id="token" rows="2" autocomplete="off" spellcheck="false" placeholder="github_pat_…"></textarea>
+    <label for="newPassword">Password (8+ characters)</label>
+    <input id="newPassword" type="password" autocomplete="new-password">
+    <label for="newPassword2">Password again</label>
+    <input id="newPassword2" type="password" autocomplete="new-password">
+    <div class="row"><button id="saveToken" class="primary" type="button">Connect</button></div>
+  </section>
+
+  <section id="unlock" hidden>
+    <h2>Unlock</h2>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password">
+    <div class="row">
+      <button id="unlockButton" class="primary" type="button">Unlock</button>
+      <button id="forget" type="button">Use a different token</button>
+    </div>
+  </section>
+
+  <div id="app" hidden>
+    <section>
+      <h2>Activated users</h2>
+      <ul id="users"></ul>
+      <p id="empty" class="muted" hidden>No users yet.</p>
+    </section>
+    <section>
+      <h2>Add a user</h2>
+      <p class="muted">The Machine ID is shown in the add-on's "not activated" screen (Copy button).</p>
+      <label for="machineId">Machine ID</label>
+      <input id="machineId" autocomplete="off" spellcheck="false" placeholder="595E62D5B0AAF5027068C7D2AA90637C">
+      <label for="userName">Name / note</label>
+      <input id="userName" autocomplete="off" placeholder="Maria (office PC)">
+      <div class="row"><button id="addButton" class="primary" type="button">Add</button></div>
+    </section>
+    <p id="publish" class="muted"></p>
+  </div>
+
+  <p id="msg" class="bad"></p>
+</main>
+<script src="admin.js"></script>
+</body>
+</html>
