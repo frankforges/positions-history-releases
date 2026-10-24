@@ -1,0 +1,5 @@
+positions-history-update 1
+version 1.2.1
+dll PositionsHistory_v1.2.1.dll
+size 901632
+sha256 0c4a8b6789da463904557954b0efa0a8ee94dd763d626e2ed1371897ecb0f9e4
