@@ -165,6 +165,76 @@ async function removeUser(user) {
   } catch (error) { message(error.message); }
 }
 
+// ---- activation requests ------------------------------------------------------------------
+// Issues the relay (relay/worker.js) opens from the add-on's "Request activation" button. Their
+// text comes from anyone who has the add-on: shown with textContent only, never as HTML.
+const REQUEST_LABEL = "activation-request";
+let requests = [];
+
+function parseRequest(issue) {
+  const body = issue.body || "";
+  const field = (name) => { const m = body.match(new RegExp("^" + name + ": (.*)$", "m")); return m ? m[1].trim() : ""; };
+  const note = body.match(/^Note:\n```\n([\s\S]*?)\n```/m);
+  return { issue: issue.number, id: field("Machine ID").toUpperCase(), name: field("Name"), version: field("Version"),
+    note: note ? note[1] : "", created: issue.created_at };
+}
+
+async function loadRequests() {
+  const issues = await api(`/repos/${OWNER}/${REPO}/issues?labels=${REQUEST_LABEL}&state=open&per_page=100`);
+  requests = issues.map(parseRequest);
+  renderRequests();
+}
+
+function renderRequests() {
+  const list = $("requests");
+  list.replaceChildren();
+  $("noRequests").hidden = requests.length > 0;
+  $("noRequests").textContent = "No pending requests.";
+  for (const request of requests) {
+    const item = document.createElement("li");
+    const id = document.createElement("code");
+    id.textContent = shortId(request.id);
+    id.title = request.id;
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = `${request.name} · v${request.version} · ${new Date(request.created).toLocaleString()}`;
+    const approve = Object.assign(document.createElement("button"), { type: "button", className: "primary", textContent: "Approve" });
+    approve.addEventListener("click", (e) => busy(e.target, () => approveRequest(request)));
+    const reject = Object.assign(document.createElement("button"), { type: "button", textContent: "Reject" });
+    reject.addEventListener("click", (e) => busy(e.target, () => rejectRequest(request)));
+    item.append(id, name, approve, reject);
+    if (request.note && request.note !== "(none)") {
+      const note = Object.assign(document.createElement("div"), { className: "note" });
+      note.textContent = request.note;
+      item.append(note);
+    }
+    list.append(item);
+  }
+}
+
+async function closeRequest(request, comment, reason) {
+  await api(`/repos/${OWNER}/${REPO}/issues/${request.issue}/comments`, { method: "POST", body: JSON.stringify({ body: comment }) });
+  await api(`/repos/${OWNER}/${REPO}/issues/${request.issue}`, { method: "PATCH", body: JSON.stringify({ state: "closed", state_reason: reason }) });
+  requests = requests.filter((r) => r !== request);
+  renderRequests();
+}
+
+async function approveRequest(request) {
+  if (!ID_PATTERN.test(request.id)) throw new Error("This request has no valid Machine ID; reject it.");
+  const name = request.name.replace(/\s+/g, " ") || "(no name)";
+  if (!lines.map(parseUser).some((u) => u && u.id.toUpperCase() === request.id)) {
+    const kept = lines.slice();
+    while (kept.length && kept[kept.length - 1].trim() === "") kept.pop();
+    await saveUsers([...kept, `${request.id}  ${name}`], `Add user: ${name} (request #${request.issue})`);
+  }
+  await closeRequest(request, "Approved: added to users.txt.", "completed");
+}
+
+async function rejectRequest(request) {
+  if (!confirm(`Reject the request from "${request.name}"?`)) return;
+  await closeRequest(request, "Rejected.", "not_planned");
+}
+
 // Follows the Publish licenses run started by a change (or shows the last one).
 let watchTimer = null;
 async function watchPublish(since) {
@@ -207,6 +277,19 @@ async function enterApp() {
   await loadUsers();
   show("app");
   watchPublish(0);
+  await loadPendingRequests();
+}
+
+// A token made before requests existed has no Issues permission: say so instead of failing.
+async function loadPendingRequests() {
+  try {
+    await loadRequests();
+  } catch (error) {
+    $("noRequests").hidden = false;
+    $("noRequests").textContent = error.status === 403 || error.status === 404
+      ? "Can't read requests: give this token Issues: Read and write on github.com, then reload."
+      : "Couldn't load requests: " + error.message;
+  }
 }
 
 $("saveToken").addEventListener("click", (e) => busy(e.target, async () => {
@@ -221,6 +304,7 @@ $("saveToken").addEventListener("click", (e) => busy(e.target, async () => {
   $("token").value = $("newPassword").value = $("newPassword2").value = "";
   show("app");
   watchPublish(0);
+  await loadPendingRequests();
 }));
 
 $("unlockButton").addEventListener("click", (e) => busy(e.target, async () => {
@@ -240,7 +324,9 @@ $("forget").addEventListener("click", () => {
 $("lock").addEventListener("click", () => {
   token = null;
   lines = [];
+  requests = [];
   $("users").replaceChildren();
+  $("requests").replaceChildren();
   $("publish").textContent = "";
   clearTimeout(watchTimer);
   show("unlock");

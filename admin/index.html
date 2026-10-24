@@ -38,6 +38,8 @@
   li:last-child { border-bottom: 0; }
   li code { font-family: ui-monospace, Consolas, monospace; font-size: 13px; color: var(--muted); white-space: nowrap; }
   li .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #requests li { flex-wrap: wrap; }
+  #requests .note { flex-basis: 100%; color: var(--muted); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
   .muted { color: var(--muted); font-size: 13px; }
   .ok { color: var(--ok); } .bad { color: var(--bad); }
   ol { margin: 6px 0 0; padding-left: 20px; color: var(--muted); font-size: 13px; }
@@ -59,7 +61,7 @@
     <ol>
       <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com → new fine-grained token</a>.</li>
       <li>Repository access: <b>Only select repositories</b> → <b>nt8-positions-history</b>.</li>
-      <li>Permissions: <b>Contents: Read and write</b>, <b>Actions: Read-only</b>. Nothing else.</li>
+      <li>Permissions: <b>Contents: Read and write</b>, <b>Issues: Read and write</b> (activation requests), <b>Actions: Read-only</b>. Nothing else.</li>
       <li>Generate, copy, paste below.</li>
     </ol>
     <label for="token">GitHub token</label>
@@ -82,6 +84,12 @@
   </section>
 
   <div id="app" hidden>
+    <section>
+      <h2>Pending requests</h2>
+      <p class="muted">Sent from the add-on's "Request activation" button. Approve adds the PC to the list below.</p>
+      <ul id="requests"></ul>
+      <p id="noRequests" class="muted" hidden>No pending requests.</p>
+    </section>
     <section>
       <h2>Activated users</h2>
       <ul id="users"></ul>
